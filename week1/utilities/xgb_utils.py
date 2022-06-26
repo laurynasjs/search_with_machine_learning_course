@@ -27,7 +27,6 @@ def plots(xgb_model, xgb_model_name, xgb_feat_map, xgb_plot):
 # xgb_train_data is a string path to our training file
 def train(xgb_train_data, num_rounds=5, xgb_conf=None ):
     dtrain = xgb.DMatrix(xgb_train_data)
-    print(f"Data: {xgb_train_data}")
     xgb_params = {'objective': 'reg:logistic'}
     bst = None
     if xgb_conf is not None:
