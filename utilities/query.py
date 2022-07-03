@@ -206,6 +206,7 @@ def search(client, user_query, index="bbuy_products", sort="_score", sortDir="de
 
 
 if __name__ == "__main__":
+    synonyms = []
     host = 'localhost'
     port = 9200
     auth = ('admin', 'admin')  # For testing only. Don't store credentials in code.
@@ -219,8 +220,8 @@ if __name__ == "__main__":
                          help='The OpenSearch port')
     general.add_argument('--user',
                          help='The OpenSearch admin.  If this is set, the program will prompt for password too. If not set, use default of admin/admin')
-    general.add_argument('--syn', default=False, type=bool,
-                         help='use synonyms true/false')
+    general.add_argument('--syn',  action='store_true',
+                         help='use synonyms')
 
     args = parser.parse_args()
 
