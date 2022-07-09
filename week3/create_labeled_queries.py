@@ -4,9 +4,17 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import numpy as np
 import csv
+import string
+import re
 
 # Useful if you want to perform stemming.
 import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
+nltk.download('stopwords')
+nltk_stop_words = set(stopwords.words("english"))
+
 stemmer = nltk.stem.PorterStemmer()
 
 categories_file_name = r'/workspace/datasets/product_data/categories/categories_0001_abcat0010000_to_pcmcat99300050000.xml'
@@ -49,11 +57,76 @@ df = pd.read_csv(queries_file_name)[['category', 'query']]
 df = df[df['category'].isin(categories)]
 
 # IMPLEMENT ME: Convert queries to lowercase, and optionally implement other normalization, like stemming.
+removeSpaces = [re.sub('\\s+', ' ', msg) for msg in df["query"]]
+df["query"] = removeSpaces
+
+new_string = [query.translate(str.maketrans('', '', string.punctuation)) for query in df["query"]]
+df["query"] = new_string
+
+lowering = [query.lower() for query in df["query"]]
+df["query"] = lowering
+df["query"] = df["query"].apply(lambda x: x.strip())
+
+queries = []
+for query in df["query"]:
+    words = []
+    for w in query.split():
+        if w not in nltk_stop_words:
+            words.append(w)
+    queries.append(" ".join(words))
+
+df["query"] = queries
+
+stemmed_queries = []
+for query in df["query"]:
+    # tokens = word_tokenize(query)
+    tokens = query.split()
+    porter_eu = [stemmer.stem(word) for word in tokens]
+    stemmed_queries.append(' '.join(porter_eu))
+
+df["query"] = stemmed_queries
 
 # IMPLEMENT ME: Roll up categories to ancestors to satisfy the minimum number of queries per category.
 
+ind = (df["category"].value_counts() >= min_queries)
+ind_true = ind[ind == True].index.to_numpy()
+ind_false = ind[ind == False].index.to_numpy()
+
+mappings = parents_df.set_index("category").to_dict()["parent"]
+mappings["cat00000"] = "cat00000"
+df["parent"] = df["category"].map(mappings)
+
+if len(ind_false) > 0:
+
+    qualified = dict((x, y) for x, y in zip(ind_true, ind_true))
+    mask = np.where(df["category"].isin(ind_false))
+    temp_df = df.iloc[mask]
+
+    while True:
+
+        ind_temp = (temp_df["parent"].value_counts() >= min_queries)
+        ind_tmp_true = ind_temp[ind_temp == True].index.to_numpy()
+        ind_tmp_false = ind_temp[ind_temp == False].index.to_numpy()
+
+        mask_true = np.where(temp_df["parent"].isin(ind_tmp_true))[0]
+
+        qualified_temp = dict((x, y) for x, y in zip(temp_df.iloc[mask_true]["category"], temp_df.iloc[mask_true]["parent"]))
+        qualified.update(qualified_temp)
+
+        if len(ind_tmp_false) == 0:
+            break
+
+        mask = np.where(temp_df["parent"].isin(ind_tmp_false))
+        temp_df = temp_df.iloc[mask]
+        temp_df["parent"] = temp_df["parent"].map(mappings)
+
+        temp_df[temp_df["parent"].isna()]
+
+print(len(np.unique(np.array(list(qualified.values())))))
+df["parent"] = df["category"].map(qualified)
+
 # Create labels in fastText format.
-df['label'] = '__label__' + df['category']
+df['label'] = '__label__' + df['parent']
 
 # Output labeled query data as a space-separated file, making sure that every category is in the taxonomy.
 df = df[df['category'].isin(categories)]
