@@ -23,6 +23,8 @@ MODEL_FILE = "/workspace/datasets/fasttext/queries_classifier_10k.bin"
 stemmer = nltk.stem.PorterStemmer()
 model = fasttext.load_model(MODEL_FILE)
 
+nltk.download('stopwords')
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logging.basicConfig(format='%(levelname)s:%(message)s')
