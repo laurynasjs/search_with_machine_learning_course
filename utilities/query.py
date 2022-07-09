@@ -345,7 +345,11 @@ if __name__ == "__main__":
             break
         print(query)
 
+        print("#########WITH CATEGORIES FILTER###########")
         search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms, cat_filter=filter_cat, boost_cat=boost_cat)
+        
+        print("#########W/O CATEGORIES FILTER###########")
+        search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms, cat_filter=False, boost_cat=False)
 
         print(query_prompt)
 
