@@ -28,3 +28,29 @@ Progress: 100.0% words/sec/thread:     506 lr:  0.000000 avg.loss:  6.123954 ETA
 N       9969
 P@1     0.488
 R@1     0.488
+
+
+shuf /workspace/datasets/fasttext/labeled_queries_1k.txt > /workspace/datasets/fasttext/shuffled_labeled_queries_1k.txt
+cat /workspace/datasets/fasttext/labeled_queries_1k.txt | wc -l
+
+head -50000 /workspace/datasets/fasttext/shuffled_labeled_queries_1k.txt > /workspace/datasets/fasttext/training_data_1k.txt 
+tail -10000 /workspace/datasets/fasttext/shuffled_labeled_queries_1k.txt > /workspace/datasets/fasttext/test_data_1k.txt
+
+~/fastText-0.9.2/fasttext supervised -input /workspace/datasets/fasttext/training_data_1k.txt  -output /workspace/datasets/fasttext/queries_classifier_1k
+~/fastText-0.9.2/fasttext test /workspace/datasets/fasttext/queries_classifier_1k.bin /workspace/datasets/fasttext/test_data_1k.txt 
+
+~/fastText-0.9.2/fasttext supervised -input /workspace/datasets/fasttext/training_data_1k.txt  -output /workspace/datasets/fasttext/queries_classifier_1k -lr 0.5 -epoch 10 -wordNgrams 2
+~/fastText-0.9.2/fasttext test /workspace/datasets/fasttext/queries_classifier_1k.bin /workspace/datasets/fasttext/test_data_1k.txt 
+
+
+shuf /workspace/datasets/fasttext/labeled_queries_10k.txt > /workspace/datasets/fasttext/shuffled_labeled_queries_10k.txt
+cat /workspace/datasets/fasttext/shuffled_labeled_queries_10k.txt | wc -l
+
+head -50000 /workspace/datasets/fasttext/shuffled_labeled_queries_10k.txt > /workspace/datasets/fasttext/training_data_10k.txt 
+tail -10000 /workspace/datasets/fasttext/shuffled_labeled_queries_10k.txt > /workspace/datasets/fasttext/test_data_10k.txt
+
+~/fastText-0.9.2/fasttext supervised -input /workspace/datasets/fasttext/training_data_10k.txt  -output /workspace/datasets/fasttext/queries_classifier_10k 
+~/fastText-0.9.2/fasttext test /workspace/datasets/fasttext/queries_classifier_10k.bin /workspace/datasets/fasttext/test_data_10k.txt 
+
+~/fastText-0.9.2/fasttext supervised -input /workspace/datasets/fasttext/training_data_10k.txt  -output /workspace/datasets/fasttext/queries_classifier_10k -lr 0.5 -epoch 10 -wordNgrams 2
+~/fastText-0.9.2/fasttext test /workspace/datasets/fasttext/queries_classifier_10k.bin /workspace/datasets/fasttext/test_data_10k.txt 

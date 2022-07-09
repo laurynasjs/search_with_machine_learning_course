@@ -18,7 +18,7 @@ from nltk.corpus import stopwords
 import fasttext
 import numpy as np
 
-MODEL_FILE = "/workspace/datasets/fasttext/queries_classifier.bin"
+MODEL_FILE = "/workspace/datasets/fasttext/queries_classifier_10k.bin"
 
 stemmer = nltk.stem.PorterStemmer()
 model = fasttext.load_model(MODEL_FILE)

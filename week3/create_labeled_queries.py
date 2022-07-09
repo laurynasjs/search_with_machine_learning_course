@@ -104,7 +104,8 @@ if len(ind_false) > 0:
 
     while True:
 
-        ind_temp = (temp_df["parent"].value_counts() >= min_queries)
+        ind_temp = (df["parent"].value_counts() >= min_queries)
+
         ind_tmp_true = ind_temp[ind_temp == True].index.to_numpy()
         ind_tmp_false = ind_temp[ind_temp == False].index.to_numpy()
 
@@ -119,8 +120,10 @@ if len(ind_false) > 0:
         mask = np.where(temp_df["parent"].isin(ind_tmp_false))
         temp_df = temp_df.iloc[mask]
         temp_df["parent"] = temp_df["parent"].map(mappings)
+        df["parent"] = df["parent"].map(mappings)
 
         temp_df[temp_df["parent"].isna()]
+        print(len(ind_tmp_false))
 
 else:
     qualified = dict((x, y) for x, y in zip(ind_true, ind_true))
