@@ -24,7 +24,8 @@
 | epoch 20, lr=0.5, wordNgrams=2 |0.567|0.763|0.826|
 
 ## 2.a. improvements
-query = panasonic
+### query = panasonic
+
 
 ['abcat0101001', 'abcat0900000']
 "value": 342
@@ -37,8 +38,9 @@ w/o filtering:
  "Panasonic - Lumix 7.2MP Digital Camera - Pink"
  "Panasonic - Wi-Fi Built-In Blu-ray Player"
 
-query = panasonic tv
- ['cat02015']
+### query = panasonic tv
+
+['cat02015']
 "value": 275,
 "Magnavox - 15\" HD-Ready LCD TV w/HD Component Video Inputs"
 "Panasonic - 50\" Class / Plasma / 1080p / 600Hz / HDTV"
