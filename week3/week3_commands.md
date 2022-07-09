@@ -4,7 +4,27 @@ shuf /workspace/datasets/fasttext/labeled_queries.txt > /workspace/datasets/fast
 
 cat /workspace/datasets/fasttext/shuffled_labeled_products.txt | wc -l
 
-head -n -3000 /workspace/datasets/fasttext/shuffled_labeled_products.txt > training_data.txt 
-tail -3000 /workspace/datasets/fasttext/shuffled_labeled_products.txt > test_data.txt
+head -5000 /workspace/datasets/fasttext/shuffled_labeled_products.txt > /workspace/datasets/fasttext/training_data.txt 
+tail -10000 /workspace/datasets/fasttext/shuffled_labeled_products.txt > /workspace/datasets/fasttext/test_data.txt
 
-~/fastText-0.9.2/fasttext supervised -input training_data.txt  -output product_classifier
+cat  /workspace/datasets/fasttext/training_data.txt | wc -l
+
+
+~/fastText-0.9.2/fasttext supervised -input /workspace/datasets/fasttext/training_data.txt  -output /workspace/datasets/fasttext/queries_classifier
+~/fastText-0.9.2/fasttext test /workspace/datasets/fasttext/queries_classifier.bin /workspace/datasets/fasttext/test_data.txt
+
+
+
+~/fastText-0.9.2/fasttext supervised -input /workspace/datasets/fasttext/training_data.txt -output /workspace/datasets/fasttext/queries_classifier -lr 1.0 -epoch 25 -wordNgrams 2
+~/fastText-0.9.2/fasttext test product_classifier_normalized.bin normalized_shuffled_test_data.txt
+
+
+Number of words:  27775
+Number of labels: 1861
+Progress: 100.0% words/sec/thread:     506 lr:  0.000000 avg.loss:  6.123954 ETA:   0h 0m 0s
+(search_with_ml) gitpod /workspace/search_with_machine_learning_course/week3 (main) $ ~/fastText-0.9.2/fasttext test /workspace/datasets/fasttext/queries_classifier.bin /workspace/datasets/fasttext/test_data.txt
+
+
+N       9969
+P@1     0.488
+R@1     0.488

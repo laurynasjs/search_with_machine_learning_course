@@ -57,11 +57,11 @@ df = pd.read_csv(queries_file_name)[['category', 'query']]
 df = df[df['category'].isin(categories)]
 
 # IMPLEMENT ME: Convert queries to lowercase, and optionally implement other normalization, like stemming.
-removeSpaces = [re.sub('\\s+', ' ', msg) for msg in df["query"]]
-df["query"] = removeSpaces
-
 new_string = [query.translate(str.maketrans('', '', string.punctuation)) for query in df["query"]]
 df["query"] = new_string
+
+removeSpaces = [re.sub('\\s+', ' ', msg) for msg in df["query"]]
+df["query"] = removeSpaces
 
 lowering = [query.lower() for query in df["query"]]
 df["query"] = lowering

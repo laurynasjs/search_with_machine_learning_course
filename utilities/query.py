@@ -11,11 +11,22 @@ from urllib.parse import urljoin
 import pandas as pd
 import fileinput
 import logging
+import string
+import re
+import nltk
+from nltk.corpus import stopwords
+import fasttext
+import numpy as np
 
+MODEL_FILE = "/workspace/datasets/fasttext/queries_classifier.bin"
+
+stemmer = nltk.stem.PorterStemmer()
+model = fasttext.load_model(MODEL_FILE)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logging.basicConfig(format='%(levelname)s:%(message)s')
+
 
 # expects clicks and impressions to be in the row
 def create_prior_queries_from_group(
@@ -192,12 +203,66 @@ def create_query(user_query, click_prior_query, filters, sort="_score", sortDir=
         query_obj["_source"] = source
     return query_obj
 
+def preprocess_query(query):
+    
+    nltk_stop_words = set(stopwords.words("english"))
 
-def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", synonyms=False):
+    preprocessed_query = query.translate(str.maketrans('', '', string.punctuation))
+    preprocessed_query = re.sub('\\s+', ' ', preprocessed_query)
+    preprocessed_query = preprocessed_query.lower().strip()
+
+    words = []
+    for w in preprocessed_query.split():
+        if w not in nltk_stop_words:
+            words.append(w)
+    preprocessed_query = " ".join(words)
+
+    tokens = preprocessed_query.split()
+    porter_eu = [stemmer.stem(word) for word in tokens]
+    preprocessed_query = ' '.join(porter_eu)
+
+    return preprocessed_query
+
+def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", synonyms=False, score_th=0.5, cat_filter=False):
     #### W3: classify the query
     #### W3: create filters and boosts
+    filters = None
+
+    if cat_filter:
+
+        user_query_normalized = preprocess_query(user_query)
+
+        prediction = model.predict("labas", 10)
+        score_cumsum = np.cumsum(prediction[1])
+
+        if score_cumsum[-1] >= score_th:
+            ind = next(x[0] for x in enumerate(score_cumsum) if x[1] > score_th)
+        else:
+            ind = len(score_cumsum)
+
+        pred_cat = [cat.replace("__label__", "") for cat in prediction[0][:ind+1]]
+        
+        if len(pred_cat) > 0:
+            filters = {
+                "terms": {
+                    "categoryPathIds": pred_cat
+                }
+            }
+        print(pred_cat)
+
     # Note: you may also want to modify the `create_query` method above
-    query_obj = create_query(user_query, click_prior_query=None, filters=None, sort=sort, sortDir=sortDir, source=["name", "shortDescription"], synonyms_bool=synonyms)
+    query_obj = create_query(
+        user_query, 
+        click_prior_query=None, 
+        filters=filters, 
+        sort=sort, 
+        sortDir=sortDir, 
+        source=["name", "shortDescription"],
+        synonyms_bool=synonyms,
+    )
+
+    # query_obj["query"]["function_score"]["query"]["bool"]["must"].append(cats_filter)
+
     logging.info(query_obj)
     response = client.search(query_obj, index=index)
     if response and response['hits']['hits'] and len(response['hits']['hits']) > 0:
@@ -222,6 +287,9 @@ if __name__ == "__main__":
                          help='The OpenSearch admin.  If this is set, the program will prompt for password too. If not set, use default of admin/admin')
     general.add_argument('--syn',  action='store_true',
                          help='use synonyms')
+    general.add_argument('--filter_cat',  action='store_true',
+                         help='filter categories')
+
 
     args = parser.parse_args()
 
@@ -232,8 +300,11 @@ if __name__ == "__main__":
     host = args.host
     port = args.port
     synonyms = args.syn
-    print(args.syn)
-    print(synonyms)
+    filter_cat = args.filter_cat
+    
+    print("use_synonyms:", synonyms)
+    print("cat_filter:", filter_cat)
+
     if args.user:
         password = getpass()
         auth = (args.user, password)
@@ -260,7 +331,7 @@ if __name__ == "__main__":
             break
         print(query)
 
-        search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms)
+        search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms, cat_filter=filter_cat)
 
         print(query_prompt)
 
