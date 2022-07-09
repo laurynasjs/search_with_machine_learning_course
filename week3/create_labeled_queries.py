@@ -122,6 +122,9 @@ if len(ind_false) > 0:
 
         temp_df[temp_df["parent"].isna()]
 
+else:
+    qualified = dict((x, y) for x, y in zip(ind_true, ind_true))
+
 print(len(np.unique(np.array(list(qualified.values())))))
 df["parent"] = df["category"].map(qualified)
 
