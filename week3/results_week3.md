@@ -1,6 +1,10 @@
 # |train set| = 50k, |test set| = 10k
 
 ## best
+### min_queries 10k:
+| Model parameters | R@1 | R@3 | R@5 |
+| --- | --- | --- | --- |
+| epoch 20, lr=0.5, wordNgrams=2 |0.567|0.763|0.826|
 
 ## min_queries 1k:
 
