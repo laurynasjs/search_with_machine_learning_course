@@ -223,7 +223,7 @@ def preprocess_query(query):
 
     return preprocessed_query
 
-def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", synonyms=False, score_th=0.5, cat_filter=False):
+def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", synonyms=False, score_th=0.5, cat_filter=False, boost_cat=False):
     #### W3: classify the query
     #### W3: create filters and boosts
     filters = None
@@ -232,7 +232,7 @@ def search(client, user_query, index="bbuy_products", sort="_score", sortDir="de
 
         user_query_normalized = preprocess_query(user_query)
 
-        prediction = model.predict("labas", 10)
+        prediction = model.predict(user_query_normalized, 10)
         score_cumsum = np.cumsum(prediction[1])
 
         if score_cumsum[-1] >= score_th:
@@ -243,12 +243,22 @@ def search(client, user_query, index="bbuy_products", sort="_score", sortDir="de
         pred_cat = [cat.replace("__label__", "") for cat in prediction[0][:ind+1]]
         
         if len(pred_cat) > 0:
+            print(pred_cat)
+
             filters = {
                 "terms": {
                     "categoryPathIds": pred_cat
                 }
             }
-        print(pred_cat)
+
+            category_boost = {
+                "filter": {
+                    "terms": {
+                        "categoryPathIds.keyword": pred_cat
+                    }
+                },
+                "weight": 5000
+            }
 
     # Note: you may also want to modify the `create_query` method above
     query_obj = create_query(
@@ -262,6 +272,8 @@ def search(client, user_query, index="bbuy_products", sort="_score", sortDir="de
     )
 
     # query_obj["query"]["function_score"]["query"]["bool"]["must"].append(cats_filter)
+    if boost_cat:
+        query_obj["query"]["function_score"]["functions"].append(category_boost)
 
     logging.info(query_obj)
     response = client.search(query_obj, index=index)
@@ -289,7 +301,8 @@ if __name__ == "__main__":
                          help='use synonyms')
     general.add_argument('--filter_cat',  action='store_true',
                          help='filter categories')
-
+    general.add_argument('--use_boost',  action='store_true',
+                         help='use categories boost')
 
     args = parser.parse_args()
 
@@ -301,9 +314,11 @@ if __name__ == "__main__":
     port = args.port
     synonyms = args.syn
     filter_cat = args.filter_cat
-    
+    boost_cat = args.use_boost
+
     print("use_synonyms:", synonyms)
     print("cat_filter:", filter_cat)
+    print("cat_boost:", boost_cat)
 
     if args.user:
         password = getpass()
@@ -331,7 +346,7 @@ if __name__ == "__main__":
             break
         print(query)
 
-        search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms, cat_filter=filter_cat)
+        search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms, cat_filter=filter_cat, boost_cat=boost_cat)
 
         print(query_prompt)
 
