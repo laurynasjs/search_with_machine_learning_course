@@ -231,7 +231,6 @@ def search(client, user_query, index="bbuy_products", sort="_score", sortDir="de
     if cat_filter:
 
         user_query_normalized = preprocess_query(user_query)
-
         prediction = model.predict(user_query_normalized, 10)
         score_cumsum = np.cumsum(prediction[1])
 
@@ -257,7 +256,7 @@ def search(client, user_query, index="bbuy_products", sort="_score", sortDir="de
                         "categoryPathIds.keyword": pred_cat
                     }
                 },
-                "weight": 5000
+                "weight": 10
             }
 
     # Note: you may also want to modify the `create_query` method above
@@ -301,7 +300,7 @@ if __name__ == "__main__":
                          help='use synonyms')
     general.add_argument('--filter_cat',  action='store_true',
                          help='filter categories')
-    general.add_argument('--use_boost',  action='store_true',
+    general.add_argument('--boost_cat',  action='store_true',
                          help='use categories boost')
 
     args = parser.parse_args()
@@ -314,7 +313,7 @@ if __name__ == "__main__":
     port = args.port
     synonyms = args.syn
     filter_cat = args.filter_cat
-    boost_cat = args.use_boost
+    boost_cat = args.boost_cat
 
     print("use_synonyms:", synonyms)
     print("cat_filter:", filter_cat)
