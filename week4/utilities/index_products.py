@@ -21,7 +21,9 @@ logger.setLevel(logging.INFO)
 logging.basicConfig(format='%(levelname)s:%(message)s')
 
 # IMPLEMENT ME: import the sentence transformers module!
-
+from sentence_transformers import SentenceTransformer 
+model = SentenceTransformer('paraphrase-MiniLM-L6-v2')  
+ 
 # NOTE: this is not a complete list of fields.  If you wish to add more, put in the appropriate XPath expression.
 #TODO: is there a way to do this using XPath/XSL Functions so that we don't have to maintain a big list?
 mappings =  [
@@ -107,7 +109,7 @@ def get_opensearch():
 def index_file(file, index_name, reduced=False):
     logger.info("Creating Model")
     # IMPLEMENT ME: instantiate the sentence transformer model!
-    
+
     logger.info("Ready to index")
 
     docs_indexed = 0
@@ -137,10 +139,17 @@ def index_file(file, index_name, reduced=False):
         if reduced and ('categoryPath' not in doc or 'Best Buy' not in doc['categoryPath'] or 'Movies & Music' in doc['categoryPath']):
             continue
         docs.append({'_index': index_name, '_id':doc['sku'][0], '_source' : doc})
+        names.append(doc['name'][0])
         #docs.append({'_index': index_name, '_source': doc})
         docs_indexed += 1
         if docs_indexed % 200 == 0:
             logger.info("Indexing")
+            # embeddings = [model.encode(name) for name in names]
+            embeddings = model.encode(names)
+
+            for doc, embed in zip(docs, embeddings):
+                doc["_source"]["name_embed"] = list(embed[0])
+
             bulk(client, docs, request_timeout=60)
             logger.info(f'{docs_indexed} documents indexed')
             docs = []
@@ -168,3 +177,14 @@ def main(source_dir: str, index_name: str, reduced: bool):
 
 if __name__ == "__main__":
     main()
+
+
+# start_time = time.time()
+# model.encode(names)
+# print("--- %s seconds ---" % (time.time() - start_time))
+
+# start_time = time.time()
+# [model.encode(nm) for nm in names]
+# print("--- %s seconds ---" % (time.time() - start_time))
+
+# file = "/workspace/datasets/product_data/products/products_0001_2570_to_430420.xml" 

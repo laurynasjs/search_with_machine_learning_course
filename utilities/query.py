@@ -17,11 +17,13 @@ import nltk
 from nltk.corpus import stopwords
 import fasttext
 import numpy as np
+from sentence_transformers import SentenceTransformer
 
 MODEL_FILE = "/workspace/datasets/fasttext/queries_classifier_10k.bin"
 
 stemmer = nltk.stem.PorterStemmer()
 model = fasttext.load_model(MODEL_FILE)
+model_query = SentenceTransformer('paraphrase-MiniLM-L6-v2')
 
 nltk.download('stopwords')
 
@@ -59,6 +61,25 @@ def create_prior_queries(doc_ids, doc_id_weights,
             except KeyError as ke:
                 pass  # nothing to do in this case, it just means we can't find priors for this doc
     return click_prior_query
+
+def create_vector_query(user_query, n_rec=1,  size=10, source=None):
+    query_embed = model_query.encode([user_query])
+    query_obj = {
+        'size': size,
+        "query": {
+            "knn": {
+                "name_embed": {
+                    "vector": list(query_embed[0]),
+                    "k": n_rec
+                    }
+                }
+            }
+        }
+
+    if source is not None:  # otherwise use the default and retrieve all source
+        query_obj["_source"] = source
+
+    return query_obj, query_embed
 
 
 # Hardcoded query here.  Better to use search templates or other query config.
@@ -225,62 +246,70 @@ def preprocess_query(query):
 
     return preprocessed_query
 
-def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", synonyms=False, score_th=0.5, cat_filter=False, boost_cat=False):
+def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", synonyms=False, score_th=0.5, cat_filter=False, boost_cat=False, knn=False):
     #### W3: classify the query
     #### W3: create filters and boosts
     filters = None
 
-    if cat_filter:
+    if knn:
+        query_obj, _ = create_vector_query(
+            user_query, 
+            n_rec=10
+        )
 
-        user_query_normalized = preprocess_query(user_query)
-        prediction = model.predict(user_query_normalized, 10)
-        score_cumsum = np.cumsum(prediction[1])
+    else:
+        if cat_filter:
 
-        if score_cumsum[-1] >= score_th:
-            ind = next(x[0] for x in enumerate(score_cumsum) if x[1] > score_th)
-        else:
-            ind = len(score_cumsum)
+            user_query_normalized = preprocess_query(user_query)
+            prediction = model.predict(user_query_normalized, 10)
+            score_cumsum = np.cumsum(prediction[1])
 
-        pred_cat = [cat.replace("__label__", "") for cat in prediction[0][:ind+1]]
-        
-        if len(pred_cat) > 0:
-            print(pred_cat)
+            if score_cumsum[-1] >= score_th:
+                ind = next(x[0] for x in enumerate(score_cumsum) if x[1] > score_th)
+            else:
+                ind = len(score_cumsum)
 
-            filters = {
-                "terms": {
-                    "categoryPathIds": pred_cat
-                }
-            }
+            pred_cat = [cat.replace("__label__", "") for cat in prediction[0][:ind+1]]
+            
+            if len(pred_cat) > 0:
+                print(pred_cat)
 
-            category_boost = {
-                "filter": {
+                filters = {
                     "terms": {
-                        "categoryPathIds.keyword": pred_cat
+                        "categoryPathIds": pred_cat
                     }
-                },
-                "weight": 10
-            }
+                }
 
-    # Note: you may also want to modify the `create_query` method above
-    query_obj = create_query(
-        user_query, 
-        click_prior_query=None, 
-        filters=filters, 
-        sort=sort, 
-        sortDir=sortDir, 
-        source=["name", "shortDescription"],
-        synonyms_bool=synonyms,
-    )
+                category_boost = {
+                    "filter": {
+                        "terms": {
+                            "categoryPathIds.keyword": pred_cat
+                        }
+                    },
+                    "weight": 10
+                }
 
-    # query_obj["query"]["function_score"]["query"]["bool"]["must"].append(cats_filter)
-    if boost_cat:
-        query_obj["query"]["function_score"]["functions"].append(category_boost)
+        # Note: you may also want to modify the `create_query` method above
+        query_obj = create_query(
+            user_query, 
+            click_prior_query=None, 
+            filters=filters, 
+            sort=sort, 
+            sortDir=sortDir, 
+            source=["name", "shortDescription"],
+            synonyms_bool=synonyms,
+        )
+
+        # query_obj["query"]["function_score"]["query"]["bool"]["must"].append(cats_filter)
+        if boost_cat:
+            query_obj["query"]["function_score"]["functions"].append(category_boost)
 
     logging.info(query_obj)
     response = client.search(query_obj, index=index)
     if response and response['hits']['hits'] and len(response['hits']['hits']) > 0:
         hits = response['hits']['hits']
         print(json.dumps(response, indent=2))
+        # print(query_embed)
 
 
 if __name__ == "__main__":
@@ -304,6 +333,8 @@ if __name__ == "__main__":
                          help='filter categories')
     general.add_argument('--boost_cat',  action='store_true',
                          help='use categories boost')
+    general.add_argument('--knn',  action='store_true',
+                         help='use vector search')
 
     args = parser.parse_args()
 
@@ -316,6 +347,7 @@ if __name__ == "__main__":
     synonyms = args.syn
     filter_cat = args.filter_cat
     boost_cat = args.boost_cat
+    vector_search = args.knn
 
     print("use_synonyms:", synonyms)
     print("cat_filter:", filter_cat)
@@ -345,13 +377,14 @@ if __name__ == "__main__":
         query = line.rstrip()
         if query == "Exit":
             break
-        print(query)
-
+        # print(query)
+        # print(model_query.encode([query]))
+        # print("query_embed#####")
         print("#########WITH CATEGORIES FILTER###########")
-        search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms, cat_filter=filter_cat, boost_cat=boost_cat)
+        search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms, cat_filter=filter_cat, boost_cat=boost_cat, knn=vector_search)
 
-        print("#########W/O CATEGORIES FILTER###########")
-        search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms, cat_filter=False, boost_cat=False)
+        # print("#########W/O CATEGORIES FILTER###########")
+        # search(client=opensearch, user_query=query, index=index_name, synonyms=synonyms, cat_filter=False, boost_cat=False, knn=vector_search)
 
         print(query_prompt)
 
